@@ -432,3 +432,72 @@ pythonpresence = (df.drop_duplicates(['oblast', 'date'])
               .fillna(0))
 totals = presence.sum()
 That only needs df (loaded at the very start of the notebook) to already exist. If df is also undefined, you've gone further out of order than that — rerun from the top in that case.
+expand on this description of the graph: "A real but modest weekly rhythm exists — more visible during quieter periods of the war, flatter during the most intense stretches"17:22Claude responded: The third panel ("weekly pattern") is the piece that backs up that claim — here's what's actually in it.Grounded temporal pattern claim in quantified data and visual evidenceGrounded temporal pattern claim in quantified data and visual evidenceThe third panel ("weekly pattern") is the piece that backs up that claim — here's what's actually in it.
+What this panel shows: after the trend (panel 2) is subtracted out, what's left is a repeating 7-day wiggle — how much a given day tends to sit above or below the trend purely because of which day of the week it is. The earlier day-of-week breakdown found this wiggle peaks Thursday-Friday and bottoms out Sunday; this panel is that same effect, but shown as a continuous strip across the whole timeline instead of a single weekly average.
+Where it's wide vs. narrow: the swing isn't constant — look at the vertical spread of the blue band as you scan left to right. It's tightest in the first few months of 2022, widens noticeably through mid-late 2022, and reaches its widest point right around early 2023 (one burst there spikes to roughly +12/-13 — the single largest weekly swing anywhere in the chart). After that, the band visibly narrows and stays narrower for the rest of the chart — 2024 through 2026 the oscillation is consistently smaller than that 2022-2023 stretch, often by roughly half.
+That early-2023 burst isn't a coincidence of timing — line it up with the trend panel directly above it: that's exactly the same window where the trend is at its lowest and choppiest (the war's quietest, most erratic stretch, discussed earlier). So the pattern is: when overall alert activity was low and unstable, which day of the week it was mattered a lot more — there was a bigger gap between a typical Thursday and a typical Sunday. Once activity became persistently elevated from late 2023 onward, that gap shrank — busy days became more evenly spread across the whole week rather than concentrated on particular days.
+One plausible (not confirmed) reading: early in the war, large coordinated missile barrages — which take more planning and can't be launched continuously — may have clustered into occasional bursts that happened to leave a stronger day-of-week fingerprint. The sustained drone campaigns of the later war are cheaper to repeat daily, which would flatten out any particular day's advantage. Worth flagging as a hypothesis, not something this chart alone proves.
+Bottom line for reading this panel: a wide band = day-of-week mattered a lot that period; a narrow band = it barely mattered. The whole chart visibly transitions from "mattered more" to "matters less" partway through 2023, and stays that way.You said: which chart identifies when most attacks happen?which chart identifies when most attacks happen? hourly and weekly? can we look at a pattern over time?17:25Claude responded: Honest answer: neither one has a dedicated chart in the notebook right now, and it's worth being precise about why.Reconciled existing analyses and mapped temporal pattern evolution possibilitiesReconciled existing analyses and mapped temporal pattern evolution possibilitiesHonest answer: neither one has a dedicated chart in the notebook right now, and it's worth being precise about why.
+
+Weekly: the STL decomposition's third panel ("weekly pattern") shows the existence and changing size of the weekly effect over time, but it doesn't directly label which day is busiest — that came from a separate calculation I ran in this chat when you asked for it (Thu/Fri highest, Sun lowest), not from a chart in the notebook.
+Hourly: there's no hour-of-day view in the notebook at all. The only hourly chart that exists is from much earlier in this conversation — a one-off bar chart (oblast-level alert starts by hour, Kyiv time, all years pooled together). It was built on the cleaned data, but as a standalone chat visualization, not part of the notebook pipeline.
+
+Can we look at how these patterns evolve over time? Yes, and it's a genuinely good question — it's the same idea as the changepoint analysis (which found the war's overall level shifted through distinct phases), but applied to rhythm instead of level. Two natural versions:
+
+Hour-of-day, by year — a heatmap with hour (0-23) on one axis and year on the other, showing whether the time-of-day attacks happen has shifted as tactics changed (e.g., early conventional strikes vs. the more recent mass-drone era, which is widely reported to favor overnight launches).
+Day-of-week, by year — same idea, checking whether which day is busiest has stayed Thu/Fri-high-Sun-low throughout, or moved around as the war evolved.
+
+Both are straightforward to build from data already in the notebook (started_at_local has the hour; date has the weekday) — just need to decide the metric (alert starts, like the hourly chart, or the same "distinct oblasts" measure used everywhere else) and the time grouping (by year, or by the 6 phases the changepoint analysis already found, which would tie it directly into the existing phase story).
+Want me to build both, grouped by those 6 phases?You said: yesyes17:26Claude responded: Good signal, reasonable sample sizes throughout.Analyzing temporal patterns across invasion phasesAnalyzing temporal patterns across invasion phasesGood signal, reasonable sample sizes throughout. Let's build the two heatmaps.Ran a command, viewed a fileRan a command, viewed a fileExcellent, exactly the gradient I expected — sharp contrast in the quiet 2023 phase, flattening toward the bottom. Let's check the hourly one.Synthesized temporal patterns and prepared analytical code deliverablesSynthesized temporal patterns and prepared analytical code deliverablesBoth confirm something genuinely important the earlier "all-time" hourly chart was hiding. Here's the deal — give me a sec to write up the explanation, then I'll give you the code.
+What the hourly-by-phase chart reveals: the 21:00 peak from the original hourly chart is a recent pattern, not a constant one. The quietest phase (Nov 2022–May 2023) shows almost the opposite — a sharp midday peak (9am–2pm) and a calm overnight, the reverse of a "nighttime drone war" signature. The now-familiar evening peak only really emerges in the most recent two phases (late 2023 onward) — consistent with the well-documented shift toward mass overnight Shahed-drone campaigns in that period, versus more varied attack timing earlier in the war.
+Weekly-by-phase confirms the STL finding precisely: the Thu/Fri-high, Sun-low pattern is sharpest exactly in the Nov 2022–May 2023 phase (Friday +20% above that phase's average, Sunday -26%) and progressively flattens toward the present (+4%/-6% in the current phase) — matching the STL panel's widening/narrowing band almost exactly.
+Code for both (paste in after your changepoint section — reuses the breaks dates already found there):Final sanity check that the standalone code chunk works before sending itFinal sanity check that the standalone code chunk works before sending itConfirmed working. Two cells:
+Cell 1 — weekly pattern by phase:
+pythonphase_bounds = ['2022-03-15','2022-06-13','2022-11-20','2023-05-04','2023-10-31','2025-03-14','2026-06-21']
+phase_labels = ['Mar-Jun 2022\n(invasion shock)','Jun-Nov 2022\n(shift east)','Nov22-May23\n(quietest, erratic)',
+                 'May-Oct 2023\n(counteroffensive\nbuildup)','Oct23-Mar25\n(sustained\ncampaigns)','Mar 2025-now\n(current)']
+def assign_phase(dates):
+    return pd.cut(dates, bins=pd.to_datetime(phase_bounds), labels=phase_labels, right=False)
+
+daily_df = daily.to_frame('val')
+daily_df['phase'] = assign_phase(daily_df.index)
+daily_df['dow'] = daily_df.index.dayofweek
+dow_labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+weekly_by_phase = daily_df.groupby(['phase','dow'], observed=True)['val'].mean().unstack()
+weekly_by_phase.columns = dow_labels
+weekly_norm = weekly_by_phase.div(weekly_by_phase.mean(axis=1), axis=0) * 100
+
+fig, ax = plt.subplots(figsize=(9, 5.5))
+sns.heatmap(weekly_norm, cmap='RdBu_r', center=100, annot=True, fmt='.0f',
+            cbar_kws={'label': "% of that phase's average (100 = typical day)"}, ax=ax)
+ax.set_title('Which day of the week is busiest — has it changed?')
+ax.set_xlabel(''); ax.set_ylabel('')
+plt.tight_layout(); plt.show()
+Cell 2 — hour-of-day pattern by phase (needs phase_bounds/assign_phase from Cell 1 to already exist):
+pythonoblast_events = df[df['level']=='oblast'].copy()
+oblast_events['phase'] = assign_phase(oblast_events['date'])
+oblast_events['hour'] = oblast_events['started_at_local'].dt.hour
+hourly_by_phase = oblast_events.groupby(['phase','hour'], observed=True).size().unstack(fill_value=0)
+hourly_norm = hourly_by_phase.div(hourly_by_phase.sum(axis=1), axis=0) * 100
+
+fig, ax = plt.subplots(figsize=(13, 5.5))
+sns.heatmap(hourly_norm, cmap='RdBu_r', center=100/24,
+            cbar_kws={'label': "% of that phase's alerts starting in this hour"}, ax=ax)
+ax.set_title('What time of day alerts start — has it changed?')
+ax.set_xlabel('hour of day (Kyiv local time)'); ax.set_ylabel('')
+plt.tight_layout(); plt.show()
+Both only need df and daily (already in your notebook) plus pd/plt/sns, all already imported.You said: draw conclusionnsdraw conclusionns17:39Claude responded: Weekly pattern (image 1):Synthesized chart patterns and extracted temporal conflict insightsSynthesized chart patterns and extracted temporal conflict insightsWeekly pattern (image 1):
+
+The Thu/Fri-high, Sun-low rhythm isn't constant — it's sharpest by far in the Nov 2022–May 2023 phase (Friday +20%, Sunday -26%) and fades in both directions from there
+The opening months (Mar–Jun 2022) show almost no weekly pattern at all — every day sits within ~7% of average. Alerts were happening so constantly during the invasion shock that day-of-week barely registered
+Friday is busiest in 4 of the 6 phases; Sunday is the most consistently quiet day overall
+The current phase (Mar 2025–now) is the flattest of any phase besides the opening shock — the weekly rhythm is fading again as the war settles into a more constant "new normal," regardless of which day it is
+
+Hourly pattern (image 2) — the more striking finding:
+
+The Nov 2022–May 2023 phase has a completely different shape from every other phase: a sharp midday peak (9am–2pm, topping 10% at 9am) with the calmest hours overnight. That's close to the opposite of what gets associated with "the drone war" — daytime risk, nighttime calm.
+That pattern fully reverses by the most recent two phases: peak shifts firmly to evening (20:00–22:00, especially 21:00), consistent with the well-documented move toward mass overnight Shahed-drone campaigns.
+The shift wasn't sudden — May–Oct 2023 still peaks around midnight-1am, not evening. The "risk concentrates at night" pattern really only solidifies from late 2023 onward.
+The two earliest phases don't agree with each other either (one peaks evening, the other just after midnight) — early-war timing was erratic, without an established rhythm yet.
+
+Bottom line, connecting both: "alerts mostly happen at night" — which is what the very first hourly chart in this conversation showed — is true for roughly the last two years of the war, not the whole thing. That earlier chart pooled all years together, so it was really just showing the pattern of the most recent, highest-volume phases. For the first ~20 months, timing was either erratic or, during the quietest stretch, the reverse of a nighttime pattern. The "when" of this war has changed shape just as much as the "how much."
